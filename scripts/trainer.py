@@ -96,7 +96,7 @@ class Trainer:
         epoch_loss = running_loss / len(val_loader.dataset)
         return epoch_loss
 
-    def fit(self, train_loader, val_loader, epochs):
+    def train(self, train_loader, val_loader, epochs):
         """
         The main loop that orchestrates training and validation
         """
