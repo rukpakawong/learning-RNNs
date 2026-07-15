@@ -1,6 +1,5 @@
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
 
 class Trainer:
     def __init__(self, model, optimizer, criterion, device=None):
@@ -102,7 +101,8 @@ class Trainer:
         """
         print(f"Starting training on device: {self.device}")
 
-        for epoch in range(epochs):
+        pbar = tqdm(range(epochs), desc="Training Model")
+        for epoch in pbar:
 
             # Run training and validation for this epoch
             train_loss = self.train_step(train_loader)
@@ -113,7 +113,7 @@ class Trainer:
             self.val_losses.append(val_loss)
 
             # Print progress
-            print(f"Epoch {epoch+1}/{epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
-
+            pbar.set_postfix_str(f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+            
         print("Training complete!")
         return self.train_losses, self.val_losses
