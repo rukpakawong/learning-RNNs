@@ -40,7 +40,7 @@ def load_and_prepare_time_series_data(filepath_or_url,
 
     Arg:
         filepath_or_url (str): Path to local CSV or URL to a remote CSV.
-        target_column (str): The name of the column you want to predict.
+        target_column (list of str): The name of the column you want to predict.
         date_column (str, optional): Column to sort chronologically
         seq_length (int, default=14): How many past steps to use for predicting the next step.
         batch_size (int, default=32): Size of the batches for the DataLoaders.
@@ -62,11 +62,11 @@ def load_and_prepare_time_series_data(filepath_or_url,
     # Extract the target column
     if fill_missing:
         # Forward fill carries the last known value forward, then fillna(0) catches any starting NaNs
-        data = df[[target_column]].ffill().fillna(0).values
+        data = df[target_column].ffill().fillna(0).values
     else:
         # Drop rows with NaN values in the target column
-        df = df.dropna(subset=[target_column])
-        data = df[[target_column]].values 
+        df = df.dropna(subset=target_column)
+        data = df[target_column].values 
     
     print(f"Succesfully loaded {len(data)} sequential data points.")
 
