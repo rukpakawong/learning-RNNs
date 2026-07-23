@@ -1,8 +1,9 @@
+import os
 import torch
 from tqdm.auto import tqdm
 
 class Trainer:
-    def __init__(self, model, optimizer, criterion, device=None):
+    def __init__(self, model, optimizer, criterion, device=None, save_dir="checkpoints"):
         """
         Initialize the Trainer.
 
@@ -26,6 +27,10 @@ class Trainer:
         else:
             self.device = device
 
+        # Setup directory for saving the model
+        self.save_dir = save_dir
+        os.makedirs(self.save_dir, exist_ok=True)
+        
         # Push the model to selected device
         self.model = self.model.to(self.device)
 
@@ -33,9 +38,9 @@ class Trainer:
         self.train_losses = []
         self.val_losses = []
 
-    def train_step(self, train_loader):
+    def train_step(self, train_loader, max_grad_norm=1.0):
         """
-        Runs one epoch of training
+        Runs one epoch of training with gradient clipping (default: 1.0).
         """
         # Set model to training mode
         self.model.train() 
@@ -58,6 +63,9 @@ class Trainer:
 
             # 5. Backward pass
             loss.backward()
+
+            # 5.1 Gradient clipping to prevent exploding gradients
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_grad_norm)
 
             # 6. Update weights
             self.optimizer.step()
@@ -95,11 +103,16 @@ class Trainer:
         epoch_loss = running_loss / len(val_loader.dataset)
         return epoch_loss
 
-    def train(self, train_loader, val_loader, epochs):
+    def train(self, train_loader, val_loader, epochs, patience=15):
         """
-        The main loop that orchestrates training and validation
+        The main loop that orchestrates training and validation with 
+        early stopping (default: 15) and checkpointing.
         """
         print(f"Starting training on device: {self.device}")
+
+        best_val_loss = float('inf')
+        early_stopping_counter = 0
+        save_path = os.path.join(self.save_dir, f"best_{self.model.__class__.__name__}.pth")
 
         pbar = tqdm(range(epochs), desc="Training Model")
         for epoch in pbar:
@@ -111,9 +124,29 @@ class Trainer:
             # Store the metrics
             self.train_losses.append(train_loss)
             self.val_losses.append(val_loss)
-
-            # Print progress
-            pbar.set_postfix_str(f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
             
-        print("Training complete!")
+            # Early stopping and checkpointing
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                early_stopping_counter = 0
+                torch.save(self.model.state_dict(), save_path)
+
+                # Print progress
+                pbar.set_postfix_str(f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} (Saved Best Model)")
+            else:
+                early_stopping_counter += 1
+
+                # Print progress
+                pbar.set_postfix_str(f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Patience: {early_stopping_counter}/{patience}")
+
+            # Check for early stopping
+            if early_stopping_counter >= patience:
+                print(f"Early stopping triggered after {epoch+1} epochs.")
+                break
+
+        print(f"Training complete! Best validation loss: {best_val_loss:.4f}. Model saved to {save_path}")
+
+        # Load the best weights back into the model before returning
+        self.model.load_state_dict(torch.load(save_path))
+
         return self.train_losses, self.val_losses
